@@ -22,9 +22,10 @@ class JTDPipeline(Stack):
     repo = ecr.Repository(self, "FrontendImage",
       removal_policy=RemovalPolicy.DESTROY)
 
-    # build pipeline
+    # overall build pipeline
     pipeline = cp.Pipeline(self, "Pipeline", cross_account_keys=False)
 
+    # Get source from github
     source_output = cp.Artifact()
     source_action = cpa.GitHubSourceAction(
       action_name="github_source", output=source_output,
@@ -34,16 +35,13 @@ class JTDPipeline(Stack):
     )
     pipeline.add_stage(stage_name="Source", actions=[source_action])
 
-    project = cb.PipelineProject(self, 'cbproject',
-      build_spec=cb.BuildSpec.from_object({
-        "version": "0.2",
-        "phases": {
-          "build": {
-            "commands": [""]
-          }
-        }
-      })
-    )
+    # build containers and put in ECR
+    project = cb.PipelineProject(self, f'{construct_id}-frontendBuild',
+      build_spec=cb.BuildSpec.from_source_filename("frontend/buildspec.yaml"),
+      environment=cb.BuildEnvironment(privileged=True),
+      environment_variables=
+        {'REPOSITORY_URI': cb.BuildEnvironmentVariable(value=repo.repository_uri),})
+    repo.grant_pull_push(project)
     build_action = cpa.CodeBuildAction(
       action_name="CodeBuild", project=project, input=source_output,
     )
