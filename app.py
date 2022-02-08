@@ -6,6 +6,6 @@ from pipeline_test.pipeline_test_stack import PipelineStack
 
 
 app = cdk.App()
-PipelineStack(app, "pipeline-test")
-
+PipelineStack(app, "pipeline-test",
+    env=cdk.Environment(region="us-east-1"))
 app.synth()
