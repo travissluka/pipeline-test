@@ -14,6 +14,16 @@ class Stack1(Stack):
     def __init__(self, scope: Construct, **kwargs) -> None:
         super().__init__(scope, **kwargs)
 
+        queue = sqs.Queue(
+            self, "PipelineTestQueue",
+            visibility_timeout=Duration.seconds(300),
+        )
+
+        topic = sns.Topic(
+            self, "PipelineTestTopic"
+        )
+
+        topic.add_subscription(subs.SqsSubscription(queue))
 
 class Stage1(Stage):
     def __init__(self, scope: Construct, **kwargs) -> None:
@@ -42,13 +52,4 @@ class PipelineStack(Stack):
 
 
 
-        # queue = sqs.Queue(
-        #     self, "PipelineTestQueue",
-        #     visibility_timeout=Duration.seconds(300),
-        # )
 
-        # topic = sns.Topic(
-        #     self, "PipelineTestTopic"
-        # )
-
-        # topic.add_subscription(subs.SqsSubscription(queue))
