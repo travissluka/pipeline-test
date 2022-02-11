@@ -22,7 +22,6 @@ class PipelineStack(Stack):
 
   def __init__(self, scope: Construct, jtd_name: str, git_repo: str,
                 git_branch: str, frontend_resources: FrontendResources,
-                services: FrontendServices,
                 **kwargs) -> None:
     super().__init__(scope, f'{jtd_name}/Pipeline',
       description="Joint Testbed Diagnostics (JTD) CI/CD pipeline",
@@ -69,27 +68,28 @@ class PipelineStack(Stack):
 
     # pipeline stage: Build application containers
     # TODO move this into a separate Stage class?
+    frontend_build_output = cp.Artifact('frontend_build')
     frontend_build_project = cb.PipelineProject(self, f'{jtd_name}FrontendBuild',
       build_spec=cb.BuildSpec.from_source_filename("frontend/buildspec.yaml"),
       environment=cb.BuildEnvironment(
         build_image=CODEBUILD_IMAGE,
         privileged=True),
-      environment_variables=
-        {'REPOSITORY_URI':
-            cb.BuildEnvironmentVariable(value=frontend_resources.ecr_repo.repository_uri),}
+      environment_variables={
+        'REPOSITORY_URI': cb.BuildEnvironmentVariable(value=frontend_resources.ecr_repo.repository_uri),}
       )
     frontend_resources.ecr_repo.grant_pull_push(frontend_build_project)
     frontend_build = cpa.CodeBuildAction(
-      action_name="FrontendBuild", input=source_output,
+      action_name="FrontendBuild", input=source_output, outputs=[frontend_build_output],
       project=frontend_build_project)
     pipeline.add_stage(stage_name="BuildContainers", actions=[frontend_build,])
 
     #pipline stage: update services
     services_project = cb.PipelineProject(self, f'{jtd_name}Services',
       build_spec=cb.BuildSpec.from_source_filename("pipeline/buildspec_services.yaml"),
-      environment=cb.BuildEnvironment(build_image=CODEBUILD_IMAGE)
+      environment=cb.BuildEnvironment(build_image=CODEBUILD_IMAGE),
     )
     services_project.add_to_role_policy(deploy_role)
     services_action = cpa.CodeBuildAction(
-      action_name="Deploy", project=services_project, input=source_output)
+      action_name="Deploy", project=services_project, input=source_output,
+      extra_inputs=[frontend_build_output])
     pipeline.add_stage(stage_name='UpdateServices', actions=[services_action])

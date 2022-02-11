@@ -6,6 +6,11 @@ phases:
     - npm install -g aws-cdk
     - python -m pip install -r requirements.txt
 
+  pre_build:
+    commands:
+      - FRONTEND_IMAGE_TAG=$(cat ${CODEBUILD_SRC_DIR_frontend_build}/frontend/image_tag)
+      - echo "Using frontend image version ${FRONTEND_IMAGE_TAG}"
+
   build:
     # TODO for security reasons synth and deploy should be in separate codebuild
     # instances with difference privileges (synth should have few privileges

@@ -30,9 +30,7 @@ phases:
     commands:
     - docker push $REPOSITORY_URI:$IMAGE_TAG
     - docker push $REPOSITORY_URI:latest
-    - >
-      printf '[{"name":"frontend_build","imageUri":"%s"}]'
-      $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
+    - printf '%s' $IMAGE_TAG > image_tag
 
 artifacts:
-  files: imagedefinitions.json
+  files: frontend/image_tag
