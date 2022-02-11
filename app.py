@@ -16,7 +16,8 @@ from aws_cdk import (
 
 from pipeline.pipeline import PipelineStack
 from frontend.cdk_stack import (
-  FrontendResources
+  FrontendResources,
+  FrontendServices
 )
 
 git_repo="travissluka/pipeline-test"
@@ -31,16 +32,30 @@ class ResourceStack(Stack):
       description="Joint Testbed Diagnostics (JTD) base resources storage.",
       **kwargs)
     #backend_resources = BackendResources(self)
-    self.frontend_resources = FrontendResources(self)
+    self.frontend = FrontendResources(self)
 
+
+class ServiceStack(Stack):
+  def __init__(self, scope: Construct, jtd_name: str, resources: FrontendResources, **kwargs) -> None:
+    super().__init__(scope, f'{jtd_name}/Services',
+      description="Joint Testbed Diagnostics (JTD) frontend/backend services.",
+      **kwargs)
+    self.frontend = FrontendServices(self, resources=resources)
 
 app = App()
 env = env=Environment(region="us-east-2")
 
 resources = ResourceStack(app, jtd_name, env=env)
+
+services = ServiceStack(app, jtd_name, resources=resources.frontend, env=env)
+services.add_dependency(resources)
+
 pipeline = PipelineStack(app,
   jtd_name=jtd_name, git_repo=git_repo, git_branch=git_branch,
-  frontend_resources=resources.frontend_resources, env=env)
+  frontend_resources=resources.frontend,
+  services=services.frontend,
+  env=env)
 pipeline.add_dependency(resources)
+
 
 app.synth()
