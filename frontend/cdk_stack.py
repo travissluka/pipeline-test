@@ -13,6 +13,7 @@ class FrontendResources(Construct):
         super().__init__(scope, 'Frontend')
 
         self.ecr_repo = ecr.Repository(self, "Image",
+            image_scan_on_push=True,
             # removal_policy=RemovalPolicy.DESTROY,
         )
 

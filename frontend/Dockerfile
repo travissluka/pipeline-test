@@ -38,8 +38,8 @@ RUN python3 -m ipykernel install --user
 RUN jupyter trust app.ipynb
 
 CMD voila --no-browser --Voila.ip=0.0.0.0 --port=80 \
-  --MappingKernelManager.cull_interval=60 \
-  --MappingKernelManager.cull_idle_timeout=60 \
+  --MappingKernelManager.cull_interval=30 \
+  --MappingKernelManager.cull_idle_timeout=30 \
   --preheat_kernel=True \
   --pool_size=5 \
   app.ipynb

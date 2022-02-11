@@ -31,14 +31,16 @@ class ResourceStack(Stack):
       description="Joint Testbed Diagnostics (JTD) base resources storage.",
       **kwargs)
     #backend_resources = BackendResources(self)
-    frontend_resources = FrontendResources(self)
+    self.frontend_resources = FrontendResources(self)
 
 
 app = App()
 env = env=Environment(region="us-east-2")
 
 resources = ResourceStack(app, jtd_name, env=env)
-pipeline = PipelineStack(app, jtd_name, git_repo, git_branch, env=env)
+pipeline = PipelineStack(app,
+  jtd_name=jtd_name, git_repo=git_repo, git_branch=git_branch,
+  frontend_resources=resources.frontend_resources, env=env)
 pipeline.add_dependency(resources)
 
 app.synth()

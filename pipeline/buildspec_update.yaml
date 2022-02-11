@@ -7,6 +7,9 @@ phases:
     - python -m pip install -r requirements.txt
 
   build:
+    # TODO for security reasons synth and deploy should be in separate codebuild
+    # instances with difference privileges (synth should have few privileges
+    # to prevent malicious code injection)
     commands:
     - cdk synth
     - cdk deploy --require-approval never "*-Pipeline"
