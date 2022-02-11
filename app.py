@@ -7,15 +7,38 @@
 #
 # Main AWS CDK entry point. Responsible for deploying the pipeline stack.
 #-------------------------------------------------------------------------------
-import aws_cdk as cdk
+from constructs import Construct
+from aws_cdk import (
+  App,
+  Environment,
+  Stack,
+  )
 
-from pipeline.pipeline import JTDPipeline
+from pipeline.pipeline import PipelineStack
+from frontend.cdk_stack import (
+  FrontendResources
+)
 
 git_repo="travissluka/pipeline-test"
 git_branch="feature/testing"
+env_name = 'Dev'
+jtd_name = f'Jtd{env_name}'
 
-app = cdk.App()
 
-JTDPipeline(app, git_repo, git_branch, env=cdk.Environment(region="us-east-2"))
+class ResourceStack(Stack):
+  def __init__(self, scope: Construct, jtd_name: str, **kwargs) -> None:
+    super().__init__(scope, f'{jtd_name}/Resources',
+      description="Joint Testbed Diagnostics (JTD) base resources storage.",
+      **kwargs)
+    #backend_resources = BackendResources(self)
+    frontend_resources = FrontendResources(self)
+
+
+app = App()
+env = env=Environment(region="us-east-2")
+
+resources = ResourceStack(app, jtd_name, env=env)
+pipeline = PipelineStack(app, jtd_name, git_repo, git_branch, env=env)
+pipeline.add_dependency(resources)
 
 app.synth()

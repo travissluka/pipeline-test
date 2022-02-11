@@ -22,13 +22,11 @@ from aws_cdk import (
 #     super().__init__(scope, construct_id)
 
 
-class JTDPipeline(Stack):
+class PipelineStack(Stack):
 
-  def __init__(self, scope: Construct, git_repo: str,
+  def __init__(self, scope: Construct, jtd_name: str, git_repo: str,
                 git_branch: str, **kwargs) -> None:
-    env_name = 'Dev' # TODO:  base this on the git branch
-    jtd_name = f"Jtd{env_name}"
-    super().__init__(scope, jtd_name,
+    super().__init__(scope, f'{jtd_name}/Pipeline',
       description="Joint Testbed Diagnostics (JTD) CI/CD pipeline",
       **kwargs)
 
