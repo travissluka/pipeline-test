@@ -48,6 +48,7 @@ resources = ResourceStack(app, jtd_name, env=env)
 pipeline = PipelineStack(app,
   jtd_name=jtd_name, git_repo=git_repo, git_branch=git_branch,
   frontend_resources=resources.frontend,
+  backend_resources=resources.backend,
   env=env)
 pipeline.add_dependency(resources)
 

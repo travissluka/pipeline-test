@@ -1,0 +1,68 @@
+# (C) Copyright 2022-2022 UCAR
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# AWS CodeBuild spec file for the JTD backend base docker image
+#
+# TODO redundant with the other docker buildspecs, combine
+#-------------------------------------------------------------------------------
+
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+    # print out verions of things in this docker image
+    - aws --version
+    - docker version
+
+    # set environment variables
+    - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+    - NEW_IMAGE_TAG=${COMMIT_HASH:=latest}
+
+    # log into ECR
+    - >
+      aws ecr get-login-password --region $AWS_DEFAULT_REGION
+      | docker login --username AWS --password-stdin ${REPOSITORY_URI%/*}
+
+  build:
+    commands:
+    # build the docker image and tag it as latest
+    # NOTE this is a multistage build, we cache the build stage separately
+    - cd backend/base_container
+    - |
+      docker pull ${REPOSITORY_URI}:latest-buildcache || true
+      docker build \
+        --cache-from ${REPOSITORY_URI}:latest-buildcache \
+        -t ${REPOSITORY_URI}:latest-buildcache \
+        -t ${REPOSITORY_URI}:${NEW_IMAGE_TAG}-buildcache \
+        -t jtd-backend-base-build:latest \
+        --target jtd-backend-base-build .
+    - |
+      docker pull ${REPOSITORY_URI}:latest || true
+      docker build \
+        --cache-from jtd-backend-base-build:latest \
+        --cache-from ${REPOSITORY_URI}:latest \
+        -t ${REPOSITORY_URI}:latest \
+        -t ${REPOSITORY_URI}:${NEW_IMAGE_TAG} \
+        --target jtd-backend-base .
+    - docker image ls
+
+  post_build:
+    commands:
+    # push images to ECR
+    - |
+      if [ ${CODEBUILD_BUILD_SUCCEEDING} = 1 ]; then
+        echo Pushing new tag: $NEW_IMAGE_TAG
+        # docker push ${REPOSITORY_URI}:${NEW_IMAGE_TAG}-buildcache
+        docker push ${REPOSITORY_URI}:latest-buildcache
+        docker push ${REPOSITORY_URI}:${NEW_IMAGE_TAG}
+        docker push ${REPOSITORY_URI}:latest
+      fi
+
+    # Tell subsequent codepipeline steps what image we just built
+    - printf '%s' $NEW_IMAGE_TAG > image_tag
+
+artifacts:
+  files: backend/base_container/image_tag

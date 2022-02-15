@@ -9,6 +9,9 @@ from aws_cdk import (
     aws_codepipeline as cp,
     aws_codepipeline_actions as cpa,
 )
+from backend.cdk_stack import (
+  BackendResources
+)
 
 from frontend.cdk_stack import (
   FrontendResources,
@@ -21,7 +24,9 @@ CODEBUILD_IMAGE = cb.LinuxBuildImage.STANDARD_5_0
 class PipelineStack(Stack):
 
   def __init__(self, scope: Construct, jtd_name: str, git_repo: str,
-                git_branch: str, frontend_resources: FrontendResources,
+                git_branch: str,
+                frontend_resources: FrontendResources,
+                backend_resources: BackendResources,
                 **kwargs) -> None:
     super().__init__(scope, f'{jtd_name}/Pipeline',
       description="Joint Testbed Diagnostics (JTD) CI/CD pipeline",
@@ -66,26 +71,50 @@ class PipelineStack(Stack):
       action_name="CodeBuild", project=update_project, input=source_output)
     pipeline.add_stage(stage_name="UpdatePipeline", actions=[update_action])
 
+    #---------------------------------------------------------------------------
     # pipeline stage: Build application containers
+    #---------------------------------------------------------------------------
     # TODO move this into a separate Stage class?
+
+    # frontend website docker image
     frontend_build_output = cp.Artifact('frontend_build')
     frontend_build_project = cb.PipelineProject(self, f'{jtd_name}FrontendBuild',
       build_spec=cb.BuildSpec.from_source_filename("frontend/buildspec.yaml"),
+      cache=cb.Cache.local(cb.LocalCacheMode.DOCKER_LAYER),
       environment=cb.BuildEnvironment(
         build_image=CODEBUILD_IMAGE,
         privileged=True),
       environment_variables={
         'REPOSITORY_URI': cb.BuildEnvironmentVariable(value=frontend_resources.ecr_repo.repository_uri),
         'CURRENT_TAG_PARAM': cb.BuildEnvironmentVariable(value=frontend_resources.image_tag.parameter_name)
-        }
-      )
+        })
     frontend_resources.image_tag.grant_read(frontend_build_project)
     frontend_resources.image_tag.grant_write(frontend_build_project)
     frontend_resources.ecr_repo.grant_pull_push(frontend_build_project)
     frontend_build = cpa.CodeBuildAction(
       action_name="FrontendBuild", input=source_output, outputs=[frontend_build_output],
       project=frontend_build_project)
-    pipeline.add_stage(stage_name="BuildContainers", actions=[frontend_build,])
+
+    # backend
+    backend_base_build_output = cp.Artifact('backend_build')
+    backend_base_build_project = cb.PipelineProject(self, f'{jtd_name}BackendBaseBuild',
+      build_spec=cb.BuildSpec.from_source_filename("backend/base_container/buildspec.yaml"),
+      cache=cb.Cache.local(cb.LocalCacheMode.DOCKER_LAYER),
+      environment=cb.BuildEnvironment(
+        build_image=CODEBUILD_IMAGE,
+        privileged=True),
+      environment_variables={
+        'REPOSITORY_URI': cb.BuildEnvironmentVariable(value=backend_resources.base_ecr_repo.repository_uri),
+        })
+    backend_resources.base_ecr_repo.grant_pull_push(backend_base_build_project)
+    backend_base_build = cpa.CodeBuildAction(
+      action_name="BackendBaseBuild", input=source_output, outputs=[backend_base_build_output],
+      project=backend_base_build_project)
+
+    pipeline.add_stage(stage_name="BuildContainers",
+      actions=[frontend_build, backend_base_build])
+    #---------------------------------------------------------------------------
+    #---------------------------------------------------------------------------
 
     #pipline stage: update services
     services_project = cb.PipelineProject(self, f'{jtd_name}Services',

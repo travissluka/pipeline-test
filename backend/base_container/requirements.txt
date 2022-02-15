@@ -1,0 +1,25 @@
+# (C) Copyright 2021-2022 UCAR
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# Python packages required by the JCSDA JTD backend base image.
+#-------------------------------------------------------------------------------
+
+# AWS requirements
+awslambdaric
+
+# bespin requirements
+# TODO, don't hardcoded these in this repo??
+click
+netcdf4
+numpy>=1.19
+scipy
+xarray
+
+# padme requirements
+cartopy
+click
+matplotlib
+netcdf4
+numpy>=1.19
