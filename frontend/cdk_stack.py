@@ -7,6 +7,7 @@ from aws_cdk import (
     aws_ecs as ecs,
     aws_ecs_patterns as ecs_p,
     aws_codebuild as cb,
+    aws_ssm as ssm,
 )
 
 class FrontendResources(Construct):
@@ -17,6 +18,15 @@ class FrontendResources(Construct):
       image_scan_on_push=True,
       # removal_policy=RemovalPolicy.DESTROY,
     )
+
+    # keep track of which docker image tag is used by ECS.
+    # This will let us skip pushing a new tag if nothing has changed,
+    # thereby preventing ECS from doing a pointless deployment of a "new" image.
+    # NOTE: I don't like it this way, find something better. Can we just read
+    # the container tag from the current ECS task?
+    self.image_tag = ssm.StringParameter(self, "LatestImageTag",
+      string_value="None", description="The Docker image tag being used by ECS.",
+      tier=ssm.ParameterTier.STANDARD)
 
 
 class FrontendBuild(Construct):
@@ -47,5 +57,4 @@ class FrontendServices(Construct):
       public_load_balancer=True,
     )
     lbfs.target_group.set_attribute('deregistration_delay.timeout_seconds', '5')
-    # lbfs.target_group.configure_health_check(
-    #   healthy_threshold_count=2, interval=Duration.seconds(10))
+    lbfs.target_group.configure_health_check(healthy_threshold_count=2)

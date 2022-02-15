@@ -11,26 +11,52 @@ version: 0.2
 phases:
   pre_build:
     commands:
+    # print out verions of things in this docker image
     - aws --version
     - docker version
+
+    # set environment variables
     - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
-    - IMAGE_TAG=${COMMIT_HASH:=latest}
+    - NEW_IMAGE_TAG=${COMMIT_HASH:=latest}
+    - CUR_IMAGE_TAG=$(aws ssm get-parameter --name ${CURRENT_TAG_PARAM} --query Parameter.Value --output text)
+
+    # log into ECR and pull the latest docker images
     - >
       aws ecr get-login-password --region $AWS_DEFAULT_REGION
       | docker login --username AWS --password-stdin ${REPOSITORY_URI%/*}
     - docker pull $REPOSITORY_URI:latest || true
-    - cd frontend
+    - docker pull $REPOSITORY_URI:$CUR_IMAGE_TAG || true
+    - echo "Current image tag is $CUR_IMAGE_TAG"
+    - echo "New image tag is $NEW_IMAGE_TAG"
 
   build:
     commands:
-    - docker build --cache-from $REPOSITORY_URI:latest -t $REPOSITORY_URI:$IMAGE_TAG .
-    - docker tag $REPOSITORY_URI:$IMAGE_TAG $REPOSITORY_URI:latest
+    # build the docker image and tag it as latest
+    - cd frontend
+    - docker build --cache-from $REPOSITORY_URI:latest -t $REPOSITORY_URI:$NEW_IMAGE_TAG .
+    - docker tag $REPOSITORY_URI:$NEW_IMAGE_TAG $REPOSITORY_URI:latest
 
   post_build:
     commands:
-    - docker push $REPOSITORY_URI:$IMAGE_TAG
-    - docker push $REPOSITORY_URI:latest
-    - printf '%s' $IMAGE_TAG > image_tag
+    # are the new and old tags actually different? If not, don't push
+    # TODO make sure that is the correct behavior (needed for testing, but not for prod?)
+    - CUR_ID=$(docker images --filter "reference=${REPOSITORY_URI}:${CUR_IMAGE_TAG}" --format "{{.ID}}")
+    - NEW_ID=$(docker images --filter "reference=${REPOSITORY_URI}:latest" --format "{{.ID}}" || echo "None")
+    - "echo Current image tag: ${CUR_IMAGE_TAG} docker id: $CUR_ID"
+    - "echo     New image tag: ${NEW_IMAGE_TAG} docker id: $NEW_ID"
+    - >
+      if [ "$CUR_ID" != "$NEW_ID" ]; then
+        docker push $REPOSITORY_URI:$NEW_IMAGE_TAG
+        docker push $REPOSITORY_URI:latest
+        echo "Pushing new tag: $NEW_IMAGE_TAG"
+        aws ssm put-parameter --overwrite --name ${CURRENT_TAG_PARAM} --value ${NEW_IMAGE_TAG}
+      else
+        echo "Reusing old image tag: $CUR_IMAGE_TAG"
+        NEW_IMAGE_TAG=${CUR_IMAGE_TAG}
+      fi
+
+    # Tell subsequent codepipeline steps what image we just built
+    - printf '%s' $NEW_IMAGE_TAG > image_tag
 
 artifacts:
   files: frontend/image_tag

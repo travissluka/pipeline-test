@@ -75,8 +75,12 @@ class PipelineStack(Stack):
         build_image=CODEBUILD_IMAGE,
         privileged=True),
       environment_variables={
-        'REPOSITORY_URI': cb.BuildEnvironmentVariable(value=frontend_resources.ecr_repo.repository_uri),}
+        'REPOSITORY_URI': cb.BuildEnvironmentVariable(value=frontend_resources.ecr_repo.repository_uri),
+        'CURRENT_TAG_PARAM': cb.BuildEnvironmentVariable(value=frontend_resources.image_tag.parameter_name)
+        }
       )
+    frontend_resources.image_tag.grant_read(frontend_build_project)
+    frontend_resources.image_tag.grant_write(frontend_build_project)
     frontend_resources.ecr_repo.grant_pull_push(frontend_build_project)
     frontend_build = cpa.CodeBuildAction(
       action_name="FrontendBuild", input=source_output, outputs=[frontend_build_output],

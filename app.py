@@ -21,6 +21,9 @@ from frontend.cdk_stack import (
   FrontendResources,
   FrontendServices
 )
+from backend.cdk_stack import (
+  BackendResources,
+)
 
 git_repo="travissluka/pipeline-test"
 git_branch="feature/testing"
@@ -37,7 +40,7 @@ class ResourceStack(Stack):
     super().__init__(scope, f'{jtd_name}/Resources',
       description="Joint Testbed Diagnostics (JTD) base resources storage.",
       **kwargs)
-    #backend_resources = BackendResources(self)
+    self.backend = BackendResources(self)
     self.frontend = FrontendResources(self)
 resources = ResourceStack(app, jtd_name, env=env)
 
