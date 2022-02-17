@@ -8,6 +8,7 @@ from aws_cdk import (
     aws_ecs_patterns as ecs_p,
     aws_codebuild as cb,
     aws_ssm as ssm,
+    aws_ec2 as ec2,
 )
 
 class FrontendResources(Construct):
@@ -38,7 +39,16 @@ class FrontendServices(Construct):
   def __init__(self, scope: Construct, resources: FrontendResources, frontend_image: str) -> None:
     super().__init__(scope, 'Frontend')
 
+    vpc = ec2.Vpc(self, "Vpc",
+      nat_gateways=0, max_azs=1,
+      cidr='10.0.0.0/16',
+      subnet_configuration=[
+        ec2.SubnetConfiguration(
+          name='PublicSubnet',cidr_mask=24, subnet_type=ec2.SubnetType.PUBLIC)
+        ])
+
     cluster = ecs.Cluster(self, "Cluster",
+      vpc=vpc,
       enable_fargate_capacity_providers=True)
 
     voila_task = ecs.FargateTaskDefinition(
